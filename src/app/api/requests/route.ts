@@ -7,6 +7,18 @@ import { buildOperatorBrief, requestSchema } from "@/lib/request-schema";
 
 export const runtime = "nodejs";
 
+const noStoreHeaders = { "Cache-Control": "no-store, max-age=0" };
+
+function noStoreJson(body: unknown, init: ResponseInit = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("Cache-Control", noStoreHeaders["Cache-Control"]);
+
+  return NextResponse.json(body, {
+    ...init,
+    headers,
+  });
+}
+
 type StoredRequest = {
   id: string;
   created_at: string;
@@ -144,19 +156,19 @@ export async function POST(request: Request) {
   try {
     payload = await request.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+    return noStoreJson({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
   const parsed = requestSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json(
+    return noStoreJson(
       { ok: false, error: "validation_error", issues: parsed.error.flatten().fieldErrors },
       { status: 422 },
     );
   }
 
   if (parsed.data.honeypot) {
-    return NextResponse.json({ ok: true, ignored: true });
+    return noStoreJson({ ok: true, ignored: true });
   }
 
   const brief = buildOperatorBrief(parsed.data);
@@ -182,7 +194,7 @@ export async function POST(request: Request) {
   const storage = await saveSupabase(record);
   const email = await notifyTeam({ ...record, id: storage.id });
 
-  return NextResponse.json({
+  return noStoreJson({
     ok: true,
     requestId: storage.id,
     storage,
@@ -200,7 +212,7 @@ export async function GET() {
       process.env.CLAW_REQUEST_FROM_EMAIL,
   );
 
-  return NextResponse.json({
+  return noStoreJson({
     ok: true,
     storage: url && serviceRoleKey ? "supabase" : "local-json-fallback",
     resendConfigured,

@@ -1,0 +1,94 @@
+.root {
+  position: relative;
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.block {
+  display: block;
+  width: 100%;
+}
+
+.block > :first-child {
+  width: 100%;
+}
+
+.bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 80;
+  width: max-content;
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 12px;
+  color: #fffaf0;
+  background: linear-gradient(145deg, #080d1d, #101827);
+  box-shadow: 0 14px 38px rgba(8, 13, 29, .2);
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.35;
+  letter-spacing: -.015em;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-50%, 6px, 0);
+  transition: opacity .14s ease, transform .14s ease;
+}
+
+.bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
+  border-right: 1px solid rgba(255, 255, 255, .14);
+  border-bottom: 1px solid rgba(255, 255, 255, .14);
+  background: #101827;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.root[data-placement="bottom"] .bubble {
+  top: calc(100% + 10px);
+  bottom: auto;
+  transform: translate3d(-50%, -6px, 0);
+}
+
+.root[data-placement="bottom"] .bubble::after {
+  top: -5px;
+  bottom: auto;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, .14);
+  border-left: 1px solid rgba(255, 255, 255, .14);
+}
+
+.root[data-state="open"] .bubble,
+.root:not([data-dismissed="true"]):focus-within .bubble {
+  opacity: 1;
+  transform: translate3d(-50%, 0, 0);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .root:not([data-dismissed="true"]):hover .bubble {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .root[data-state="open"] .bubble,
+  .root:focus-within .bubble,
+  .root:hover .bubble {
+    opacity: 0;
+    transform: translate3d(-50%, 4px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble {
+    transition: none;
+  }
+}

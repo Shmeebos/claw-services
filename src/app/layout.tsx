@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Claw Services — Request Desk",
+  title: "Claw Services | Messy digital work, turned into finished outcomes.",
   description:
-    "Human-operated AI services desk for websites, lead systems, design, content, research, and digital operations.",
+    "Human-operated, AI-assisted digital services for websites, lead systems, design, content, research, and recurring operator support.",
   icons: {
     icon: "/brand/claw-services-mark.svg",
   },
