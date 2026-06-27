@@ -34,10 +34,10 @@ const portalCapabilities = [
 ];
 
 const flowSteps = [
-  ["01", "Submit", "Send the rough outcome, material, deadline, and any examples."],
-  ["02", "Scope", "Claw clarifies the brief, timeline, price or credit estimate, and success criteria."],
-  ["03", "Execute", "A human operator works the request and keeps the delivery room updated."],
-  ["04", "Approve", "Review the finished asset, request changes, approve, and keep the record."],
+  ["Submit", "Send the rough outcome, material, deadline, and any examples."],
+  ["Scope", "Claw clarifies the brief, timeline, price or credit estimate, and success criteria."],
+  ["Execute", "A human operator works the request and keeps the delivery room updated."],
+  ["Approve", "Review the finished asset, request changes, approve, and keep the record."],
 ] as const;
 
 const queueItems = [
@@ -133,9 +133,9 @@ export default function PortalPage() {
             <h2>From raw intent to approved artifact.</h2>
           </div>
           <div className={styles.flowGrid}>
-            {flowSteps.map(([number, title, copy]) => (
+            {flowSteps.map(([title, copy]) => (
               <article className={styles.flowStep} key={title}>
-                <span>{number}</span>
+                <span className={styles.flowCheck} aria-hidden="true">✓</span>
                 <h3>{title}</h3>
                 <p>{copy}</p>
               </article>
