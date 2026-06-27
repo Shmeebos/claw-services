@@ -170,6 +170,42 @@ const renderStaggeredText = (text: string, className: string, speedMs: number, o
   );
 };
 
+const renderSuspendedTitle = (text: string) => {
+  let letterIndex = 0;
+
+  return (
+    <span aria-hidden="true" className="engagement-rig-title">
+      {Array.from(text).map((char, index) => {
+        if (char === " ") {
+          return <span className="engagement-rig-space" key={`space-${index}`} />;
+        }
+
+        const currentIndex = letterIndex;
+        const drop = Math.round(104 + seededFraction((currentIndex + 1) * 19 + text.length) * 32);
+        const sway = (seededFraction((currentIndex + 1) * 29 + text.length) - 0.5) * 7;
+        letterIndex += 1;
+
+        return (
+          <span
+            className="engagement-rig-unit"
+            key={`${char}-${index}`}
+            style={{
+              "--engagement-delay": `${90 + currentIndex * 26}ms`,
+              "--engagement-drop": `${drop * -1}px`,
+              "--engagement-string": `${drop + 4}px`,
+              "--engagement-sway": `${sway.toFixed(2)}deg`,
+              "--engagement-sway-soft": `${(sway * 0.34).toFixed(2)}deg`,
+            } as CSSProperties}
+          >
+            <span className="engagement-rig-cable" />
+            <span className="engagement-rig-letter">{char}</span>
+          </span>
+        );
+      })}
+    </span>
+  );
+};
+
 type ApiResponse = {
   ok: boolean;
   pending?: boolean;
@@ -297,47 +333,30 @@ export default function Home() {
   const submitInFlightRef = useRef(false);
   const [loadedServiceImages, setLoadedServiceImages] = useState<Record<string, boolean>>({});
   const selected = serviceCards[active];
+  const engagementTitle = useMemo(() => renderSuspendedTitle("Structured Engagements"), []);
+  const servicesTitle = useMemo(() => renderStaggeredText("Services Claw can handle.", "services-title-fill", 20), []);
+  const servicesCopy = useMemo(
+    () =>
+      renderStaggeredText(
+        "Websites, intake systems, content, research, and recurring operator support — each scoped into clear deliverables before work starts.",
+        "services-copy-fill",
+        8,
+        280,
+      ),
+    [],
+  );
 
   const markServiceImageLoaded = (image: string) => {
     setLoadedServiceImages((current) => (current[image] ? current : { ...current, [image]: true }));
   };
 
   useEffect(() => {
-    let loaded = document.readyState === "complete";
-    let minimumElapsed = false;
-    let cancelled = false;
-
-    const finishIntro = () => {
-      if (!cancelled && loaded && minimumElapsed) setIntroComplete(true);
-    };
-
-    const minimumTimer = window.setTimeout(() => {
-      minimumElapsed = true;
-      finishIntro();
-    }, 980);
-
-    const fallbackTimer = window.setTimeout(() => {
-      loaded = true;
-      minimumElapsed = true;
-      finishIntro();
-    }, 2600);
-
-    const handleLoad = () => {
-      loaded = true;
-      window.setTimeout(finishIntro, 160);
-    };
-
-    if (loaded) {
-      handleLoad();
-    } else {
-      window.addEventListener("load", handleLoad, { once: true });
-    }
+    const minimumTimer = window.setTimeout(() => setIntroComplete(true), 1080);
+    const fallbackTimer = window.setTimeout(() => setIntroComplete(true), 2600);
 
     return () => {
-      cancelled = true;
       window.clearTimeout(minimumTimer);
       window.clearTimeout(fallbackTimer);
-      window.removeEventListener("load", handleLoad);
     };
   }, []);
 
@@ -391,20 +410,26 @@ export default function Home() {
               observer?.unobserve(entry.target);
             }
           },
-          { rootMargin: "0px 0px -12% 0px", threshold: 0.12 },
+          { rootMargin: "0px 0px -12% 0px", threshold: 0.01 },
         )
       : null;
+
+    const shouldUseScrollFallback = observer === null;
 
     targets.forEach((element) => observer?.observe(element));
     revealVisibleTargets();
     window.addEventListener("resize", revealVisibleTargets);
-    window.addEventListener("scroll", revealVisibleTargets, { passive: true });
+    if (shouldUseScrollFallback) {
+      window.addEventListener("scroll", revealVisibleTargets, { passive: true });
+    }
 
     return () => {
       observer?.disconnect();
       delete root.dataset.revealReady;
       window.removeEventListener("resize", revealVisibleTargets);
-      window.removeEventListener("scroll", revealVisibleTargets);
+      if (shouldUseScrollFallback) {
+        window.removeEventListener("scroll", revealVisibleTargets);
+      }
       targets.forEach((element) => {
         delete element.dataset.reveal;
         delete element.dataset.revealKind;
@@ -450,6 +475,7 @@ export default function Home() {
     const root = document.documentElement;
     const stages = Array.from(document.querySelectorAll<HTMLElement>("[data-motion-stage]"));
     const servicesSection = document.getElementById("deliverables");
+    const engagementSection = document.getElementById("ways-to-work");
     const servicesTrack = document.querySelector<HTMLElement>(".services-track");
     const servicesViewport = document.querySelector<HTMLElement>(".services-viewport");
     const workflowSection = document.getElementById("process");
@@ -458,6 +484,7 @@ export default function Home() {
     let lastY = window.scrollY;
     let ticking = false;
     let servicesRevealed = servicesSection?.dataset.servicesRevealed === "true";
+    let engagementTitleRevealed = engagementSection?.dataset.engagementTitleRevealed === "true";
 
     const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 
@@ -467,7 +494,14 @@ export default function Home() {
       servicesRevealed = true;
     };
 
+    const revealEngagementTitle = () => {
+      if (!engagementSection || engagementTitleRevealed) return;
+      engagementSection.dataset.engagementTitleRevealed = "true";
+      engagementTitleRevealed = true;
+    };
+
     let revealObserver: IntersectionObserver | null = null;
+    let engagementObserver: IntersectionObserver | null = null;
 
     const updateMotion = () => {
       ticking = false;
@@ -494,6 +528,13 @@ export default function Home() {
         }
       }
       root.dataset.stage = activeStage;
+
+      if (engagementSection && !engagementTitleRevealed) {
+        const engagementRect = engagementSection.getBoundingClientRect();
+        if (engagementRect.top <= window.innerHeight * 0.34 && engagementRect.bottom >= window.innerHeight * 0.64) {
+          revealEngagementTitle();
+        }
+      }
 
       if (servicesSection && servicesTrack && servicesViewport) {
         const stickyOffset = 76;
@@ -561,6 +602,7 @@ export default function Home() {
       root.style.setProperty("--carousel-depth", "0%");
       root.style.setProperty("--workflow-progress", "1");
       root.style.setProperty("--workflow-line-progress", "100%");
+      engagementSection?.setAttribute("data-engagement-title-revealed", "true");
       workflowSteps.forEach((step) => {
         step.style.setProperty("--step-focus", "1");
         step.style.setProperty("--step-drift", "0px");
@@ -571,6 +613,21 @@ export default function Home() {
     }
 
     root.dataset.servicesRevealReady = "true";
+    root.dataset.engagementTitleReady = "true";
+
+    if (engagementSection && "IntersectionObserver" in window) {
+      engagementObserver = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry?.isIntersecting) return;
+          revealEngagementTitle();
+          requestUpdate();
+          engagementObserver?.disconnect();
+        },
+        { rootMargin: "-24% 0px -24% 0px", threshold: 0.52 },
+      );
+      engagementObserver.observe(engagementSection);
+    }
+
     if (servicesSection && "IntersectionObserver" in window) {
       revealObserver = new IntersectionObserver(
         ([entry]) => {
@@ -589,7 +646,9 @@ export default function Home() {
     window.addEventListener("resize", requestUpdate);
     return () => {
       delete root.dataset.servicesRevealReady;
+      delete root.dataset.engagementTitleReady;
       revealObserver?.disconnect();
+      engagementObserver?.disconnect();
       window.removeEventListener("scroll", requestUpdate);
       window.removeEventListener("resize", requestUpdate);
     };
@@ -855,7 +914,9 @@ export default function Home() {
       </section>
 
       <section className="section engagement-section" id="ways-to-work" data-motion-stage="packages">
-        <h2 className="engagement-title">Structured Engagements</h2>
+        <h2 className="engagement-title" aria-label="Structured Engagements">
+          {engagementTitle}
+        </h2>
         <div className="engagement-grid">
           {structuredEngagements.map((engagement) => (
             <article className={`engagement-card ${engagement.variant}`} key={engagement.title}>
@@ -882,8 +943,8 @@ export default function Home() {
       <section className="section services-scroll" id="deliverables" data-motion-stage="services">
         <div className="services-sticky">
           <div className="section-head services-head">
-            <h2 aria-label="Services Claw can handle.">{renderStaggeredText("Services Claw can handle.", "services-title-fill", 20)}</h2>
-            <p aria-label="Websites, intake systems, content, research, and recurring operator support — each scoped into clear deliverables before work starts.">{renderStaggeredText("Websites, intake systems, content, research, and recurring operator support — each scoped into clear deliverables before work starts.", "services-copy-fill", 8, 280)}</p>
+            <h2 aria-label="Services Claw can handle.">{servicesTitle}</h2>
+            <p aria-label="Websites, intake systems, content, research, and recurring operator support — each scoped into clear deliverables before work starts.">{servicesCopy}</p>
           </div>
           <div className="services-carousel-shell">
             <div className="services-viewport" aria-label="Scroll-reactive services carousel">
@@ -938,7 +999,6 @@ export default function Home() {
                   aria-label={`${serviceCards[key].label}. ${serviceCards[key].summary}`}
                   onClick={() => selectActiveService(key)}
                 >
-                  <span aria-hidden="true">{serviceCards[key].label[0]}</span>
                   <b>{serviceCards[key].label}</b>
                   <em>{serviceCards[key].summary}</em>
                 </button>

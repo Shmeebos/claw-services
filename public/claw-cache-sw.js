@@ -3,7 +3,7 @@
  * Deny-by-default: only safe same-origin GET resources are cached.
  * Bump CACHE_VERSION when cache policy or cached public payload shape changes.
  */
-const CACHE_VERSION = "claw-cache-v1";
+const CACHE_VERSION = "claw-cache-v2";
 const STATIC_CACHE = `${CACHE_VERSION}:static`;
 const CONTENT_CACHE = `${CACHE_VERSION}:content`;
 const PAGE_CACHE = `${CACHE_VERSION}:pages`;
@@ -27,12 +27,6 @@ const PRECACHE_PUBLIC_ASSETS = [
   "/favicon.ico",
   "/brand/claw-services-logo.svg",
   "/brand/claw-services-mark.svg",
-  "/stock/client-laptop.jpg",
-  "/stock/operator-desk.jpg",
-  "/stock/operator-support.jpg",
-  "/stock/premium-workspace.jpg",
-  "/stock/strategy-desk.jpg",
-  "/stock/team-ops.jpg",
 ];
 const PRECACHE_CONTENT = ["/api/landing"];
 
