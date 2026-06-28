@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ClawBrandLogo } from "@/components/ClawBrandLogo";
 import { Tooltip } from "@/components/Tooltip";
+import { FlowCube } from "./FlowCube";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
@@ -127,21 +128,7 @@ export default function PortalPage() {
           </div>
         </section>
 
-        <section className={styles.flowBand} id="flow" aria-label="Portal delivery flow">
-          <div className={styles.sectionHeadDark}>
-            <p className={styles.kicker}>Delivery flow</p>
-            <h2>From raw intent to approved artifact.</h2>
-          </div>
-          <div className={styles.flowGrid}>
-            {flowSteps.map(([title, copy]) => (
-              <article className={styles.flowStep} key={title}>
-                <span className={styles.flowCheck} aria-hidden="true">✓</span>
-                <h3>{title}</h3>
-                <p>{copy}</p>
-              </article>
-            ))}
-          </div>
-        </section>
+        <FlowCube steps={flowSteps} />
 
         <section className={styles.deliveryRoom} id="delivery-room">
           <div className={styles.sectionHead}>

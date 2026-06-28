@@ -323,7 +323,6 @@
 }
 
 .capabilityCard p,
-.flowStep p,
 .artifactPanel p,
 .approvalPanel p,
 .queueItem span {
@@ -335,135 +334,314 @@
 }
 
 .flowBand {
-  margin: 0 clamp(28px, 4.6vw, 74px);
-  padding: clamp(42px, 5vw, 76px);
-  border-radius: 34px;
+  --cube-rotation: 0deg;
+  margin: 0;
+  min-height: 420svh;
+  scroll-margin-top: 92px;
   color: #fffaf0;
   background:
-    radial-gradient(circle at 80% 20%, rgba(115, 223, 232, .16), transparent 28%),
-    linear-gradient(135deg, #080d1d, #101827 58%, #12233a);
-  box-shadow: 0 24px 76px rgba(8, 13, 29, .18);
+    radial-gradient(circle at 18% 22%, rgba(115, 223, 232, .2), transparent 28%),
+    radial-gradient(circle at 82% 18%, rgba(229, 189, 97, .12), transparent 26%),
+    radial-gradient(circle at 70% 68%, rgba(16, 185, 129, .18), transparent 34%),
+    linear-gradient(135deg, #050814 0%, #080d1d 42%, #102033 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 30px 90px rgba(8, 13, 29, .2);
+  overflow: clip;
 }
 
-.sectionHeadDark h2,
-.sectionHeadDark .kicker {
-  color: #fffaf0;
-}
-
-.sectionHeadDark .kicker {
-  color: #cceee8;
-}
-
-.flowGrid {
+.flowCubeSticky {
+  position: sticky;
+  top: 0;
+  min-height: 100svh;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: clamp(8px, 1.2vw, 14px);
-}
-
-.flowStep {
-  position: relative;
-  min-height: clamp(180px, 13.5vw, 202px);
-  display: grid;
+  grid-template-columns: minmax(300px, .82fr) minmax(420px, 1.18fr);
+  grid-template-areas:
+    "intro stage"
+    "progress stage";
   align-content: center;
-  padding: 18px 20px 20px;
+  align-items: center;
+  gap: clamp(28px, 5vw, 86px);
+  padding: clamp(112px, 9vw, 142px) clamp(28px, 5.6vw, 88px) clamp(56px, 7vw, 96px);
+  isolation: isolate;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,.16);
-  border-radius: 24px;
-  background: linear-gradient(145deg, rgba(13,24,39,.98), rgba(19,38,58,.96));
-  transform: translate3d(0, 0, 0);
-  animation: flow-card-complete 7.2s cubic-bezier(.16, 1, .24, 1) infinite;
-  animation-delay: var(--flow-delay, 0ms);
 }
 
-.flowStep::before {
+.flowCubeSticky::before,
+.flowCubeSticky::after,
+.flowConsoleGlow {
   content: "";
   position: absolute;
-  inset: 0;
-  z-index: 0;
-  background:
-    radial-gradient(circle at 50% 48%, rgba(121,242,199,.28), transparent 36%),
-    linear-gradient(135deg, rgba(16,185,129,.26), rgba(44,102,88,.18) 52%, rgba(8,13,29,.18));
-  opacity: 0;
-  transform: translateX(18%);
-  animation: flow-complete-wash 7.2s cubic-bezier(.16, 1, .24, 1) infinite;
-  animation-delay: var(--flow-delay, 0ms);
   pointer-events: none;
+  z-index: -1;
 }
 
-.flowStep:nth-child(1) { --flow-delay: 0ms; }
-.flowStep:nth-child(2) { --flow-delay: 780ms; }
-.flowStep:nth-child(3) { --flow-delay: 1560ms; }
-.flowStep:nth-child(4) { --flow-delay: 2340ms; }
+.flowCubeSticky::before {
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(115,223,232,.065) 0 1px, transparent 1px 100%),
+    linear-gradient(0deg, rgba(115,223,232,.045) 0 1px, transparent 1px 100%);
+  background-size: 74px 74px;
+  mask-image: radial-gradient(circle at 62% 48%, black, transparent 74%);
+}
 
-.flowCheck {
-  position: absolute;
-  inset: -8px;
-  z-index: 3;
+.flowCubeSticky::after {
+  inset: auto -10% -22% 24%;
+  height: 38%;
+  background: radial-gradient(ellipse, rgba(121,242,199,.18), transparent 68%);
+  filter: blur(30px);
+}
+
+.flowConsoleGlow {
+  inset: 11% 4% 10% auto;
+  width: 54vw;
+  max-width: 860px;
+  border: 1px solid rgba(121,242,199,.1);
+  border-radius: 42px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.012)),
+    radial-gradient(circle at 52% 42%, rgba(121,242,199,.16), transparent 42%);
+  box-shadow: inset 0 0 80px rgba(115,223,232,.08), 0 0 140px rgba(8,13,29,.55);
+  transform: skewY(-2deg);
+}
+
+.flowCubeIntro {
+  grid-area: intro;
+  max-width: 760px;
+}
+
+.flowCubeIntro .kicker {
+  color: #a7f3d0;
+}
+
+.flowCubeIntro h2 {
+  margin: 0;
+  color: #fffaf0;
+  font-size: clamp(48px, 6.2vw, 112px);
+  line-height: .88;
+  letter-spacing: -.065em;
+  font-weight: 950;
+  text-wrap: balance;
+}
+
+.flowCubeTerminal {
+  width: min(100%, 440px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: clamp(24px, 3vw, 42px);
+  padding: 14px 16px;
+  border: 1px solid rgba(121,242,199,.22);
+  border-radius: 18px;
+  color: #dffcf0;
+  background: rgba(6, 12, 28, .72);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 18px 50px rgba(0,0,0,.2);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.flowCubeTerminal b {
+  color: #7cf8c8;
+}
+
+.flowCubeStage {
+  grid-area: stage;
+  position: relative;
   display: grid;
   place-items: center;
-  color: #7cf8c8;
-  font-size: clamp(138px, 13vw, 220px);
-  line-height: 1;
-  font-weight: 950;
-  text-shadow:
-    0 0 20px rgba(121,242,199,.72),
-    0 0 54px rgba(16,185,129,.5),
-    0 8px 0 rgba(8,13,29,.38);
-  opacity: 0;
-  transform: translate3d(44px, 0, 0) rotate(-10deg) scale(.58);
-  animation: flow-check-complete 7.2s cubic-bezier(.16, 1, .24, 1) infinite;
-  animation-delay: var(--flow-delay, 0ms);
-  pointer-events: none;
+  min-height: min(76svh, 760px);
+  perspective: 1600px;
 }
 
-.flowStep h3,
-.flowStep p {
+.flowCubeChrome {
+  position: absolute;
+  top: clamp(10px, 2vw, 22px);
+  left: 50%;
+  z-index: 3;
+  width: min(90%, 620px);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 18px;
+  color: #9fb4c9;
+  background: rgba(5, 8, 20, .78);
+  box-shadow: 0 18px 48px rgba(0,0,0,.24);
+  transform: translateX(-50%);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.flowCubeChrome span {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #314157;
+}
+
+.flowCubeChrome span:nth-child(1) { background: #f59e0b; }
+.flowCubeChrome span:nth-child(2) { background: #73dfe8; }
+.flowCubeChrome span:nth-child(3) { background: #7cf8c8; }
+
+.flowCubeChrome b {
+  margin-left: auto;
+  color: #dffcf0;
+  font-size: 11px;
+  letter-spacing: .18em;
+}
+
+.flowCubeScene {
+  --cube-size: clamp(320px, 38vw, 610px);
+  --cube-depth: calc(var(--cube-size) / 2);
   position: relative;
-  z-index: 1;
-  animation: flow-content-blur 7.2s cubic-bezier(.16, 1, .24, 1) infinite;
-  animation-delay: var(--flow-delay, 0ms);
+  width: var(--cube-size);
+  height: var(--cube-size);
+  transform-style: preserve-3d;
 }
 
-.flowStep h3 {
-  margin: 0 0 12px;
+.flowCubeScene::before {
+  content: "";
+  position: absolute;
+  inset: 16% 8% -10%;
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgba(121,242,199,.22), transparent 68%);
+  filter: blur(36px);
+  transform: translateZ(-280px) rotateX(70deg);
+}
+
+.flowCube {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(-9deg) rotateY(var(--cube-rotation));
+  transition: transform .12s linear;
+}
+
+.flowCubeFace {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.flowCubeFaceInner {
+  height: 100%;
+  display: grid;
+  align-content: center;
+  gap: clamp(18px, 2.2vw, 28px);
+  padding: clamp(28px, 4vw, 54px);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: clamp(26px, 3vw, 42px);
+  color: #edfdf6;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.045) 0 1px, transparent 1px 100%),
+    linear-gradient(0deg, rgba(255,255,255,.034) 0 1px, transparent 1px 100%),
+    radial-gradient(circle at 80% 18%, rgba(115,223,232,.18), transparent 34%),
+    linear-gradient(145deg, rgba(7,14,31,.98), rgba(15,29,48,.96));
+  background-size: 42px 42px, 42px 42px, auto, auto;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), inset 0 -48px 90px rgba(0,0,0,.12), 0 36px 90px rgba(0,0,0,.32);
+  transform: scale(.965);
+  transition: border-color .28s ease, background .28s ease, box-shadow .28s ease, transform .28s ease;
+}
+
+.flowCubeFace.isActive .flowCubeFaceInner {
+  border-color: rgba(124,248,200,.68);
+  color: #f7fff9;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.055) 0 1px, transparent 1px 100%),
+    linear-gradient(0deg, rgba(255,255,255,.04) 0 1px, transparent 1px 100%),
+    radial-gradient(circle at 78% 18%, rgba(229,189,97,.16), transparent 28%),
+    radial-gradient(circle at 26% 80%, rgba(115,223,232,.14), transparent 34%),
+    linear-gradient(145deg, rgba(8,69,54,.98), rgba(8,51,43,.97) 58%, rgba(6,19,33,.98));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), inset 0 0 0 1px rgba(124,248,200,.16), 0 0 54px rgba(16,185,129,.24), 0 46px 110px rgba(0,0,0,.38);
+  animation: cube-face-confirm .76s cubic-bezier(.16, 1, .24, 1) both;
+}
+
+.flowCubeIndex {
+  width: fit-content;
+  padding: 9px 11px;
+  border: 1px solid rgba(124,248,200,.22);
+  border-radius: 999px;
+  color: #9ef7d7;
+  background: rgba(255,255,255,.055);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: .18em;
+}
+
+.flowCubeFace h3 {
+  margin: 0 0 16px;
   color: #fffaf0;
-  font-size: clamp(24px, 2vw, 32px);
-  line-height: 1;
-  letter-spacing: -.04em;
+  font-size: clamp(42px, 5vw, 86px);
+  line-height: .86;
+  letter-spacing: -.07em;
+  font-weight: 950;
 }
 
-.flowStep p {
-  color: #dbe5ef;
+.flowCubeFace p {
+  max-width: 520px;
+  margin: 0;
+  color: #e2eef6;
+  font-size: clamp(18px, 1.6vw, 24px);
+  line-height: 1.35;
+  letter-spacing: -.035em;
+  font-weight: 680;
 }
 
-@keyframes flow-check-complete {
-  0%, 7% { opacity: 0; transform: translate3d(44px, 0, 0) rotate(-10deg) scale(.58); filter: blur(5px); }
-  11% { opacity: 1; transform: translate3d(6px, 0, 0) rotate(2deg) scale(1.1); filter: blur(0); }
-  17% { opacity: 1; transform: translate3d(-10px, 0, 0) rotate(-2deg) scale(1); filter: blur(0); }
-  78% { opacity: .98; transform: translate3d(-10px, 0, 0) rotate(-2deg) scale(1); filter: blur(0); }
-  92%, 100% { opacity: 0; transform: translate3d(-42px, 0, 0) rotate(-4deg) scale(.96); filter: blur(3px); }
+.flowCubeFace.isActive p {
+  color: #f3fff9;
 }
 
-@keyframes flow-content-blur {
-  0%, 8% { opacity: 1; filter: blur(0); transform: translateZ(0); }
-  13% { opacity: .36; filter: blur(5px); transform: translate3d(-3px, 0, 0); }
-  78% { opacity: .34; filter: blur(5px); transform: translate3d(-3px, 0, 0); }
-  93%, 100% { opacity: 1; filter: blur(0); transform: translateZ(0); }
+.flowCubeProgress {
+  grid-area: progress;
+  display: grid;
+  gap: 12px;
+  max-width: 520px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-@keyframes flow-card-complete {
-  0%, 8% { transform: translate3d(0, 0, 0); border-color: rgba(255,255,255,.16); box-shadow: none; }
-  15% { transform: translate3d(-12px, 0, 0); border-color: rgba(121,242,199,.62); box-shadow: inset 0 0 0 1px rgba(121,242,199,.16), 0 18px 44px rgba(16,185,129,.12); }
-  24%, 82% { transform: translate3d(-8px, 0, 0); border-color: rgba(121,242,199,.42); box-shadow: inset 0 0 0 1px rgba(121,242,199,.12), 0 16px 38px rgba(16,185,129,.09); }
-  94%, 100% { transform: translate3d(0, 0, 0); border-color: rgba(255,255,255,.16); box-shadow: none; }
+.flowCubeProgress li {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 12px;
+  color: rgba(226,238,246,.68);
+  font-size: 14px;
+  font-weight: 950;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  transition: color .25s ease, transform .25s ease;
 }
 
-@keyframes flow-complete-wash {
-  0%, 8% { opacity: 0; transform: translateX(18%); }
-  16% { opacity: 1; transform: translateX(-2%); }
-  76% { opacity: .78; transform: translateX(-8%); }
-  94%, 100% { opacity: 0; transform: translateX(-16%); }
+.flowCubeProgress li span {
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(226,238,246,.2);
+  transition: background .25s ease, box-shadow .25s ease;
+}
+
+.flowCubeProgress li.isActive {
+  color: #f7fff9;
+  transform: translateX(8px);
+}
+
+.flowCubeProgress li.isActive span {
+  background: #7cf8c8;
+  box-shadow: 0 0 18px rgba(124,248,200,.5);
+}
+
+@keyframes cube-face-confirm {
+  0% { transform: translate3d(0, 0, 0) rotateZ(0deg) scale(.985); }
+  22% { transform: translate3d(-5px, 0, 0) rotateZ(-.55deg) scale(1.045); }
+  42% { transform: translate3d(5px, 0, 0) rotateZ(.45deg) scale(1.038); }
+  64% { transform: translate3d(-2px, 0, 0) rotateZ(-.2deg) scale(1.04); }
+  100% { transform: translate3d(0, 0, 0) rotateZ(0deg) scale(1.035); }
 }
 
 .roomGrid {
@@ -598,7 +776,6 @@
 .conciergeCard,
 .sectionHead,
 .capabilityCard,
-.flowBand,
 .queuePanel,
 .artifactPanel,
 .approvalPanel {
@@ -617,7 +794,6 @@
 .capabilityCard:nth-child(2) { --portal-enter-delay: 460ms; }
 .capabilityCard:nth-child(3) { --portal-enter-delay: 530ms; }
 .capabilityCard:nth-child(4) { --portal-enter-delay: 600ms; }
-.flowBand { --portal-enter-delay: 160ms; }
 .queuePanel { --portal-enter-delay: 180ms; }
 .artifactPanel { --portal-enter-delay: 260ms; }
 .approvalPanel { --portal-enter-delay: 340ms; }
@@ -647,17 +823,33 @@
 
   .hero,
   .capabilityGrid,
-  .flowGrid,
   .roomGrid {
     grid-template-columns: 1fr;
+  }
+
+  .flowCubeSticky {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "intro"
+      "stage"
+      "progress";
+    align-content: center;
+    gap: 28px;
+  }
+
+  .flowCubeStage {
+    min-height: 58svh;
+  }
+
+  .flowCubeScene {
+    --cube-size: min(72vw, 540px);
   }
 
   .heroCopy h1 {
     font-size: clamp(52px, 12vw, 92px);
   }
 
-  .capabilityCard,
-  .flowStep {
+  .capabilityCard {
     min-height: auto;
   }
 }
@@ -680,8 +872,53 @@
   }
 
   .flowBand {
-    margin: 0 20px;
-    padding: 34px 20px;
+    min-height: 360svh;
+  }
+
+  .flowCubeSticky {
+    padding: 86px 20px 34px;
+    gap: 18px;
+  }
+
+  .flowCubeIntro h2 {
+    font-size: clamp(40px, 12vw, 64px);
+  }
+
+  .flowCubeTerminal {
+    margin-top: 20px;
+  }
+
+  .flowCubeStage {
+    min-height: 46svh;
+  }
+
+  .flowCubeScene {
+    --cube-size: min(76vw, 320px);
+  }
+
+  .flowCubeChrome {
+    top: 0;
+  }
+
+  .flowCubeFaceInner {
+    padding: 22px;
+  }
+
+  .flowCubeFace h3 {
+    font-size: clamp(34px, 10vw, 50px);
+  }
+
+  .flowCubeFace p {
+    font-size: 16px;
+  }
+
+  .flowCubeProgress {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .flowCubeProgress li {
+    grid-template-columns: 28px 1fr;
+    font-size: 11px;
   }
 
   .heroCopy h1,
@@ -697,26 +934,44 @@
   .conciergeCard,
   .sectionHead,
   .capabilityCard,
-  .flowBand,
   .queuePanel,
   .artifactPanel,
   .approvalPanel,
-  .flowStep,
-  .flowStep::before,
-  .flowCheck,
-  .flowStep h3,
-  .flowStep p {
+  .flowCube,
+  .flowCubeFaceInner {
     opacity: 1;
     transform: none;
     filter: none;
     animation: none;
   }
 
-  .flowCheck {
-    opacity: .95;
+  .flowBand {
+    min-height: auto;
   }
 
-  .flowStep::before {
-    opacity: .42;
+  .flowCubeSticky {
+    position: relative;
+    min-height: auto;
+  }
+
+  .flowCubeScene,
+  .flowCube {
+    width: 100%;
+    height: auto;
+  }
+
+  .flowCube {
+    position: relative;
+    display: grid;
+    gap: 16px;
+  }
+
+  .flowCubeFace {
+    position: relative;
+    transform: none !important;
+  }
+
+  .flowCubeFaceInner {
+    transform: none;
   }
 }
