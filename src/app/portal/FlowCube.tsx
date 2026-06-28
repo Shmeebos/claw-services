@@ -60,12 +60,6 @@ export function FlowCube({ steps }: FlowCubeProps) {
         </div>
 
         <div className={styles.flowCubeStage}>
-          <div className={styles.flowCubeChrome} aria-hidden="true">
-            <span />
-            <span />
-            <span />
-            <b>FLOW-CUBE</b>
-          </div>
           <div className={styles.flowCubeScene}>
             <div className={styles.flowCube}>
               {steps.map(([title, copy], index) => (
