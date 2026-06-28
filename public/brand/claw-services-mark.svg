@@ -1,12 +1,12 @@
 <svg width="192" height="144" viewBox="0 0 96 72" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">Claw Services hand and bell mark</title>
-  <desc id="desc">A sharp line-art hand reaching down to press a service bell.</desc>
-  <path d="M14 18V45H35" stroke="#080D1D" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter"/>
-  <path d="M28 18H43L55 14L77 21L76 27H63L52 24L40 31H28" stroke="#080D1D" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter"/>
-  <path d="M35 45L46 38H69" stroke="#080D1D" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter"/>
-  <path d="M70 32V38" stroke="#080D1D" stroke-width="5" stroke-linecap="square"/>
-  <path d="M57 52C57 44 62 38 70 38C78 38 83 44 83 52" stroke="#080D1D" stroke-width="5" stroke-linecap="square" stroke-linejoin="round"/>
-  <path d="M53 57H87" stroke="#080D1D" stroke-width="5" stroke-linecap="square"/>
-  <path d="M59 64H81" stroke="#080D1D" stroke-width="5" stroke-linecap="square"/>
-  <path d="M83 37L89 31" stroke="#1F5552" stroke-width="3" stroke-linecap="square" opacity="0.68"/>
+  <title id="title">Claw Services mark</title>
+  <desc id="desc">A balanced abstract claw mark over a service bell.</desc>
+  <path d="M28 13C34 22 34 32 28 40" stroke="#080D1D" stroke-width="4.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M48 9C54 20 54 31 48 41" stroke="#080D1D" stroke-width="4.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M68 13C62 22 62 32 68 40" stroke="#080D1D" stroke-width="4.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M48 31V36" stroke="#080D1D" stroke-width="4.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M32 54C32 43 38 36 48 36C58 36 64 43 64 54" stroke="#080D1D" stroke-width="4.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M27 57H69" stroke="#080D1D" stroke-width="4.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M38 64H58" stroke="#080D1D" stroke-width="4.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M70 33L78 25" stroke="#1F5552" stroke-width="3" stroke-linecap="round" opacity="0.72"/>
 </svg>

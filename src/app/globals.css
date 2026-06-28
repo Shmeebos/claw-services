@@ -308,18 +308,17 @@ html[data-scroll-direction="up"] .motion-ribbon { transform: translate3d(calc(va
 .claw-mark-bell-line,
 .claw-mark-ring-ray {
   fill: none;
-  stroke-linecap: square;
-  stroke-linejoin: miter;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   stroke-miterlimit: 10;
   vector-effect: non-scaling-stroke;
 }
 .claw-mark-hand-line,
-.claw-mark-bell-line { stroke: var(--logo-ink); stroke-width: 5; }
-.claw-mark-bell-dome { stroke-linejoin: round; }
-.claw-mark-ring-ray { stroke: var(--logo-accent); stroke-width: 3; transform-origin: 83px 37px; }
+.claw-mark-bell-line { stroke: var(--logo-ink); stroke-width: 4.7; }
+.claw-mark-ring-ray { stroke: var(--logo-accent); stroke-width: 3; transform-origin: 70px 33px; }
 .claw-hand-mark.is-floating { animation: claw-logo-float 5.4s ease-in-out infinite; }
-.claw-hand-mark.is-pressing .claw-mark-hand { transform-origin: 14px 45px; animation: claw-hand-press 1.16s cubic-bezier(.16,1,.24,1) infinite; }
-.claw-hand-mark.is-pressing .claw-mark-bell { transform-origin: 70px 57px; animation: claw-bell-press 1.16s cubic-bezier(.16,1,.24,1) infinite; }
+.claw-hand-mark.is-pressing .claw-mark-hand { transform-origin: 48px 26px; animation: claw-hand-press 1.16s cubic-bezier(.16,1,.24,1) infinite; }
+.claw-hand-mark.is-pressing .claw-mark-bell { transform-origin: 48px 54px; animation: claw-bell-press 1.16s cubic-bezier(.16,1,.24,1) infinite; }
 .claw-hand-mark.is-pressing .claw-mark-ring-ray { animation: claw-ring-ray 1.16s cubic-bezier(.16,1,.24,1) infinite; }
 .claw-brand-logo { display: inline-flex; align-items: center; gap: 12px; }
 .claw-brand-logo .claw-hand-mark { width: 46px; height: 36px; flex: 0 0 auto; }

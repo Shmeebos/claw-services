@@ -73,7 +73,6 @@ export function FlowCube({ steps }: FlowCubeProps) {
                   aria-hidden={activeIndex !== index}
                 >
                   <div className={styles.flowCubeFaceInner}>
-                    <span className={styles.flowCubeIndex}>{String(index + 1).padStart(2, "0")}</span>
                     <div>
                       <h3>{title}</h3>
                       <p>{copy}</p>

@@ -377,10 +377,10 @@
 .flowCubeSticky::before {
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(115,223,232,.065) 0 1px, transparent 1px 100%),
-    linear-gradient(0deg, rgba(115,223,232,.045) 0 1px, transparent 1px 100%);
-  background-size: 74px 74px;
-  mask-image: radial-gradient(circle at 62% 48%, black, transparent 74%);
+    radial-gradient(circle at 58% 42%, rgba(115,223,232,.09), transparent 42%),
+    radial-gradient(circle at 36% 66%, rgba(229,189,97,.055), transparent 34%),
+    linear-gradient(135deg, rgba(255,255,255,.035), transparent 58%);
+  mask-image: radial-gradient(circle at 62% 48%, black, transparent 78%);
 }
 
 .flowCubeSticky::after {
@@ -500,11 +500,8 @@
   border-radius: clamp(26px, 3vw, 42px);
   color: #edfdf6;
   background:
-    linear-gradient(90deg, rgba(255,255,255,.045) 0 1px, transparent 1px 100%),
-    linear-gradient(0deg, rgba(255,255,255,.034) 0 1px, transparent 1px 100%),
-    radial-gradient(circle at 80% 18%, rgba(115,223,232,.18), transparent 34%),
+    radial-gradient(circle at 80% 18%, rgba(115,223,232,.16), transparent 34%),
     linear-gradient(145deg, rgba(7,14,31,.98), rgba(15,29,48,.96));
-  background-size: 42px 42px, 42px 42px, auto, auto;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.1), inset 0 -48px 90px rgba(0,0,0,.12), 0 36px 90px rgba(0,0,0,.32);
   transform: scale(.965);
   transition: border-color .28s ease, background .28s ease, box-shadow .28s ease, transform .28s ease;
@@ -514,25 +511,11 @@
   border-color: rgba(124,248,200,.68);
   color: #f7fff9;
   background:
-    linear-gradient(90deg, rgba(255,255,255,.055) 0 1px, transparent 1px 100%),
-    linear-gradient(0deg, rgba(255,255,255,.04) 0 1px, transparent 1px 100%),
-    radial-gradient(circle at 78% 18%, rgba(229,189,97,.16), transparent 28%),
-    radial-gradient(circle at 26% 80%, rgba(115,223,232,.14), transparent 34%),
+    radial-gradient(circle at 78% 18%, rgba(229,189,97,.14), transparent 28%),
+    radial-gradient(circle at 26% 80%, rgba(115,223,232,.12), transparent 34%),
     linear-gradient(145deg, rgba(8,69,54,.98), rgba(8,51,43,.97) 58%, rgba(6,19,33,.98));
   box-shadow: inset 0 1px 0 rgba(255,255,255,.18), inset 0 0 0 1px rgba(124,248,200,.16), 0 0 54px rgba(16,185,129,.24), 0 46px 110px rgba(0,0,0,.38);
   animation: cube-face-confirm .76s cubic-bezier(.16, 1, .24, 1) both;
-}
-
-.flowCubeIndex {
-  width: fit-content;
-  padding: 9px 11px;
-  border: 1px solid rgba(124,248,200,.22);
-  border-radius: 999px;
-  color: #9ef7d7;
-  background: rgba(255,255,255,.055);
-  font-size: 12px;
-  font-weight: 950;
-  letter-spacing: .18em;
 }
 
 .flowCubeFace h3 {
