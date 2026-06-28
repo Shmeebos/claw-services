@@ -358,15 +358,15 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
-  margin-top: 34px;
+  margin-top: clamp(8px, 1.2vw, 14px);
 }
 
 .flowStep {
   position: relative;
-  min-height: 245px;
+  min-height: clamp(180px, 13.5vw, 202px);
   display: grid;
-  align-content: end;
-  padding: 28px 24px 26px;
+  align-content: center;
+  padding: 18px 20px 20px;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,.16);
   border-radius: 24px;
