@@ -13,6 +13,20 @@ pnpm dev
 
 Open `http://localhost:3000`.
 
+## Request assistant backend
+
+`/api/request-assistant` is a stateless public intake assistant. It turns a short conversation into a reviewable payload for the existing `/api/requests` endpoint, but it never submits automatically and cannot retrieve portal data. OpenRouter is used only when the request explicitly includes `useAi: true`; otherwise the conversation stays on the deterministic fallback.
+
+Copy `.env.example` to `.env.local` to enable the OpenRouter path. Without an API key, local development uses the deterministic guided-intake fallback. Production remains disabled until `REQUEST_ASSISTANT_PUBLIC_ENABLED=true` is set explicitly.
+
+Verify the backend with:
+
+```bash
+pnpm test
+pnpm lint
+pnpm build
+```
+
 ## What works now
 
 - Premium Claw Services landing page
