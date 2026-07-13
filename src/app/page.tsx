@@ -800,8 +800,8 @@ export default function Home() {
             <a href="#builder">Work builder</a>
           </Tooltip>
         </nav>
-        <Tooltip content="Open the form and draft a brief.">
-          <a className="pill-btn" href="#system">Start a request</a>
+        <Tooltip content="Open the guided intake workspace.">
+          <a className="pill-btn" href="/request">Start a request</a>
         </Tooltip>
       </header>
 
@@ -818,8 +818,8 @@ export default function Home() {
               {["Send the ask", "Get scope + price", "We build it", "You approve"].map((step) => <span key={step}>{step}</span>)}
             </div>
             <div className="hero-actions">
-              <Tooltip content="Open the form and draft a brief.">
-                <a className="pill-btn" href="#system">Initiate request</a>
+              <Tooltip content="Open the guided intake workspace.">
+                <a className="pill-btn" href="/request">Initiate request</a>
               </Tooltip>
               <a className="outline-btn" href="#deliverables">View capabilities</a>
             </div>

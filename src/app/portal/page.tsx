@@ -74,8 +74,8 @@ export default function PortalPage() {
               files, approvals, credits, and a clean record of what was shipped.
             </p>
             <div className={styles.heroActions}>
-              <Tooltip content="Open the request form.">
-                <Link className={styles.primaryButton} href="/#system">Start a request</Link>
+              <Tooltip content="Open the guided intake workspace.">
+                <Link className={styles.primaryButton} href="/request">Start a request</Link>
               </Tooltip>
               <a className={styles.secondaryButton} href="#delivery-room">See the portal view</a>
             </div>
