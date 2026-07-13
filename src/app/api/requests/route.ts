@@ -4,6 +4,14 @@ import { Resend } from "resend";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { buildOperatorBrief, requestSchema } from "@/lib/request-schema";
+import {
+  readRequestBodyWithLimit,
+  validateRequestPolicy,
+} from "@/lib/request-assistant/request-policy";
+import {
+  checkRequestAssistantRateLimit,
+  requestAssistantClientKey,
+} from "@/lib/request-assistant/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -55,9 +63,14 @@ async function saveLocal(record: StoredRequest) {
 async function saveSupabase(record: StoredRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const production = process.env.NODE_ENV === "production";
 
   if (!url || !serviceRoleKey) {
-    return saveLocal(record);
+    if (production) {
+      return { ok: false as const, error: "storage_not_configured" as const };
+    }
+    const local = await saveLocal(record);
+    return { ok: true as const, ...local };
   }
 
   const supabase = createClient(url, serviceRoleKey, {
@@ -87,10 +100,14 @@ async function saveSupabase(record: StoredRequest) {
       message: error.message,
       code: error.code,
     });
-    return saveLocal(record);
+    if (production) {
+      return { ok: false as const, error: "storage_unavailable" as const };
+    }
+    const local = await saveLocal(record);
+    return { ok: true as const, ...local };
   }
 
-  return { mode: "supabase" as const, id: String(data.id) };
+  return { ok: true as const, mode: "supabase" as const, id: String(data.id) };
 }
 
 async function notifyTeam(record: StoredRequest) {
@@ -152,9 +169,29 @@ function escapeHtml(value: string) {
 }
 
 export async function POST(request: Request) {
+  const policyFailure = validateRequestPolicy(request);
+  if (policyFailure) {
+    const { status, ...errorBody } = policyFailure;
+    return noStoreJson({ ok: false, ...errorBody }, { status });
+  }
+
+  const clientKey = `request-submit:${requestAssistantClientKey(request)}`;
+  const limit = checkRequestAssistantRateLimit(clientKey);
+  if (!limit.allowed) {
+    return noStoreJson(
+      { ok: false, error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+
+  const body = await readRequestBodyWithLimit(request, 16 * 1024);
+  if (!body.ok) {
+    return noStoreJson({ ok: false, error: body.error }, { status: 413 });
+  }
+
   let payload: unknown;
   try {
-    payload = await request.json();
+    payload = JSON.parse(body.text);
   } catch {
     return noStoreJson({ ok: false, error: "invalid_json" }, { status: 400 });
   }
@@ -187,11 +224,20 @@ export async function POST(request: Request) {
     source: "website",
     metadata: {
       userAgent: request.headers.get("user-agent") ?? null,
-      referer: request.headers.get("referer") ?? null,
     },
   };
 
-  const storage = await saveSupabase(record);
+  let storage: Awaited<ReturnType<typeof saveSupabase>>;
+  try {
+    storage = await saveSupabase(record);
+  } catch (error) {
+    console.error("Request persistence failed", error);
+    return noStoreJson({ ok: false, error: "storage_unavailable" }, { status: 503 });
+  }
+  if (!storage.ok) {
+    return noStoreJson({ ok: false, error: storage.error }, { status: 503 });
+  }
+
   const email = await notifyTeam({ ...record, id: storage.id });
 
   return noStoreJson({
@@ -212,9 +258,12 @@ export async function GET() {
       process.env.CLAW_REQUEST_FROM_EMAIL,
   );
 
+  const storageConfigured = Boolean(url && serviceRoleKey);
+  const localFallbackEnabled = process.env.NODE_ENV !== "production";
+
   return noStoreJson({
-    ok: true,
-    storage: url && serviceRoleKey ? "supabase" : "local-json-fallback",
+    ok: storageConfigured || localFallbackEnabled,
+    storage: storageConfigured ? "supabase-configured" : localFallbackEnabled ? "local-json-development" : "unavailable",
     resendConfigured,
     requiredEnv: [
       "NEXT_PUBLIC_SUPABASE_URL",

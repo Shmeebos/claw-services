@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { serviceOptions } from "../landing-content";
+import { requestFieldLimits } from "../request-schema";
 
 export const assistantFieldSchema = z.enum([
   "name",
@@ -11,15 +12,26 @@ export const assistantFieldSchema = z.enum([
   "timeline",
 ]);
 
+export const taskFieldSchema = z.enum(["service", "request", "budget", "timeline"]);
+
 export const requestDraftSchema = z
   .object({
-    name: z.string().trim().max(120).optional(),
-    email: z.string().trim().max(180).optional(),
-    businessUrl: z.string().trim().max(240).optional(),
+    name: z.string().trim().max(requestFieldLimits.name).optional(),
+    email: z.string().trim().max(requestFieldLimits.email).optional(),
+    businessUrl: z.string().trim().max(requestFieldLimits.businessUrl).optional(),
     service: z.enum(serviceOptions).optional(),
-    request: z.string().trim().max(2200).optional(),
-    budget: z.string().trim().max(80).optional(),
-    timeline: z.string().trim().max(80).optional(),
+    request: z.string().trim().max(requestFieldLimits.request).optional(),
+    budget: z.string().trim().max(requestFieldLimits.budget).optional(),
+    timeline: z.string().trim().max(requestFieldLimits.timeline).optional(),
+  })
+  .strict();
+
+export const providerTaskDraftSchema = z
+  .object({
+    service: z.enum(serviceOptions).optional(),
+    request: z.string().trim().min(15).max(requestFieldLimits.request).optional(),
+    budget: z.string().trim().max(requestFieldLimits.budget).optional(),
+    timeline: z.string().trim().max(requestFieldLimits.timeline).optional(),
   })
   .strict();
 
@@ -36,18 +48,19 @@ export const requestAssistantInputSchema = z
     draft: requestDraftSchema.optional().default({}),
     answering: assistantFieldSchema.optional(),
     useAi: z.boolean().optional().default(false),
-    honeypot: z.string().trim().max(200).optional().default(""),
+    honeypot: z.string().trim().max(requestFieldLimits.honeypot).optional().default(""),
   })
   .strict();
 
-export const providerOutputSchema = z.object({
-  reply: z.string().trim().min(1).max(1200),
-  draft: requestDraftSchema.default({}),
-  nextField: assistantFieldSchema.nullable().optional(),
-});
+export const providerOutputSchema = z
+  .object({
+    draft: providerTaskDraftSchema,
+  })
+  .strict();
 
 export type AssistantField = z.infer<typeof assistantFieldSchema>;
-export type AssistantMessage = z.infer<typeof assistantMessageSchema>;
+export type TaskField = z.infer<typeof taskFieldSchema>;
 export type RequestDraft = z.infer<typeof requestDraftSchema>;
+export type ProviderTaskDraft = z.infer<typeof providerTaskDraftSchema>;
 export type RequestAssistantInput = z.infer<typeof requestAssistantInputSchema>;
 export type ProviderOutput = z.infer<typeof providerOutputSchema>;

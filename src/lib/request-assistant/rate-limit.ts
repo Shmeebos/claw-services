@@ -11,30 +11,37 @@ type RateLimitOptions = {
   now?: number;
 };
 
+const MAX_BUCKETS = 10_000;
+const PRUNE_PER_REQUEST = 64;
 const globalWithBuckets = globalThis as typeof globalThis & {
-  __clawRequestAssistantBuckets?: Map<string, Bucket>;
+  __clawRequestAssistantRateLimit?: Map<string, Bucket>;
 };
-
 const buckets =
-  globalWithBuckets.__clawRequestAssistantBuckets ??
-  (globalWithBuckets.__clawRequestAssistantBuckets = new Map<string, Bucket>());
+  globalWithBuckets.__clawRequestAssistantRateLimit ??
+  (globalWithBuckets.__clawRequestAssistantRateLimit = new Map<string, Bucket>());
 
-function readPositiveInteger(value: string | undefined, fallback: number) {
-  const parsed = Number.parseInt(value ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+function integerEnv(name: string, fallback: number, minimum: number, maximum: number) {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(maximum, Math.max(minimum, Math.floor(value)));
 }
 
 export function requestAssistantRateLimitConfig() {
   return {
-    limit: readPositiveInteger(process.env.REQUEST_ASSISTANT_RATE_LIMIT, 12),
-    windowMs: readPositiveInteger(process.env.REQUEST_ASSISTANT_RATE_WINDOW_MS, 10 * 60 * 1000),
+    limit: integerEnv("REQUEST_ASSISTANT_RATE_LIMIT", 12, 1, 100),
+    windowMs: integerEnv("REQUEST_ASSISTANT_RATE_WINDOW_MS", 10 * 60 * 1000, 10_000, 60 * 60 * 1000),
   };
 }
 
-export function clientRateLimitKey(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const source = forwarded || request.headers.get("x-real-ip") || `unknown:${request.headers.get("user-agent") ?? "none"}`;
-  return createHash("sha256").update(source).digest("hex");
+function pruneBuckets(now: number) {
+  let inspected = 0;
+  for (const [key, bucket] of buckets) {
+    if (bucket.resetAt <= now) buckets.delete(key);
+    inspected += 1;
+    if (inspected >= PRUNE_PER_REQUEST) break;
+  }
 }
 
 export function checkRequestAssistantRateLimit(key: string, options: RateLimitOptions = {}) {
@@ -43,15 +50,16 @@ export function checkRequestAssistantRateLimit(key: string, options: RateLimitOp
   const windowMs = options.windowMs ?? defaults.windowMs;
   const now = options.now ?? Date.now();
 
-  if (buckets.size > 10_000) {
-    for (const [bucketKey, bucket] of buckets) {
-      if (bucket.resetAt <= now) buckets.delete(bucketKey);
-    }
-  }
-
+  pruneBuckets(now);
   const current = buckets.get(key);
-  const bucket = !current || current.resetAt <= now ? { count: 0, resetAt: now + windowMs } : current;
+  const bucket = current && current.resetAt > now ? current : { count: 0, resetAt: now + windowMs };
   bucket.count += 1;
+
+  if (!current && buckets.size >= MAX_BUCKETS) {
+    const oldest = buckets.keys().next().value;
+    if (oldest) buckets.delete(oldest);
+  }
+  buckets.delete(key);
   buckets.set(key, bucket);
 
   return {
@@ -61,4 +69,13 @@ export function checkRequestAssistantRateLimit(key: string, options: RateLimitOp
     resetAt: bucket.resetAt,
     retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
   };
+}
+
+export function requestAssistantClientKey(request: Request) {
+  const trustedVercelIp = request.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim();
+  const developmentIp =
+    request.headers.get("x-real-ip")?.trim() ||
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const source = trustedVercelIp || (process.env.NODE_ENV === "production" ? "untrusted-client" : developmentIp) || "unknown";
+  return createHash("sha256").update(source).digest("hex");
 }

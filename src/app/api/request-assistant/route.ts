@@ -1,28 +1,39 @@
 import { NextResponse } from "next/server";
-import { scanSensitiveContent } from "@/lib/request-assistant/guardrails";
+import { checkDurableAiQuota, durableAiQuotaConfig } from "@/lib/request-assistant/durable-rate-limit";
+import {
+  containsProviderRestrictedData,
+  scanSensitiveContent,
+} from "@/lib/request-assistant/guardrails";
 import {
   applyDeterministicAnswer,
   buildGuidedReply,
   evaluateDraft,
+  filterProviderSuggestion,
   getNextRequiredField,
-  isUnsafeAssistantReply,
-  mergeDraft,
 } from "@/lib/request-assistant/logic";
 import {
-  generateRequestAssistantDraft,
+  generateRequestAssistantSuggestion,
+  providerEligibleForField,
   requestAssistantProviderConfig,
 } from "@/lib/request-assistant/provider";
 import {
   checkRequestAssistantRateLimit,
-  clientRateLimitKey,
+  requestAssistantClientKey,
   requestAssistantRateLimitConfig,
 } from "@/lib/request-assistant/rate-limit";
-import { requestAssistantInputSchema, type RequestDraft } from "@/lib/request-assistant/types";
+import {
+  MAX_ASSISTANT_BODY_BYTES,
+  readRequestBodyWithLimit,
+  validateRequestPolicy,
+} from "@/lib/request-assistant/request-policy";
+import {
+  requestAssistantInputSchema,
+  type ProviderTaskDraft,
+} from "@/lib/request-assistant/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BODY_BYTES = 24 * 1024;
 const privateHeaders = {
   "Cache-Control": "private, no-store, max-age=0",
   Pragma: "no-cache",
@@ -45,17 +56,18 @@ function publicAssistantEnabled() {
   return process.env.NODE_ENV !== "production";
 }
 
-function rateLimitHeaders(result: ReturnType<typeof checkRequestAssistantRateLimit>) {
+function localRateHeaders(limit: ReturnType<typeof checkRequestAssistantRateLimit>) {
   return {
-    "X-RateLimit-Limit": String(result.limit),
-    "X-RateLimit-Remaining": String(result.remaining),
-    "X-RateLimit-Reset": String(Math.ceil(result.resetAt / 1000)),
+    "X-RateLimit-Limit": String(limit.limit),
+    "X-RateLimit-Remaining": String(limit.remaining),
+    "X-RateLimit-Reset": String(Math.ceil(limit.resetAt / 1000)),
   };
 }
 
 export async function GET() {
   const provider = requestAssistantProviderConfig();
-  const rateLimit = requestAssistantRateLimitConfig();
+  const localLimit = requestAssistantRateLimitConfig();
+  const durableQuota = durableAiQuotaConfig();
 
   return json({
     ok: true,
@@ -64,25 +76,36 @@ export async function GET() {
     provider: {
       configured: provider.configured,
       model: provider.model,
-      fallback: "guided-intake",
+      zeroDataRetentionRequired: true,
+      configurationReadyForPublicAi: provider.configured && durableQuota.configured,
     },
     privacy: {
-      persistence: "none",
+      applicationPersistence: "none",
+      providerProcessing: "explicit-useAi-opt-in-only",
+      providerData: "explicit-task-answer-with-known-identity-and-common-contact-redaction",
       privatePortalRetrieval: false,
       autoSubmit: false,
-      externalAiOptInRequired: true,
     },
     rateLimit: {
-      mode: "best-effort-instance",
-      limit: rateLimit.limit,
-      windowMs: rateLimit.windowMs,
+      local: { mode: "bounded-instance", limit: localLimit.limit, windowMs: localLimit.windowMs },
+      ai: {
+        mode: "upstash-distributed",
+        configured: durableQuota.configured,
+        clientLimit: durableQuota.clientLimit,
+        windowMs: durableQuota.windowMs,
+        dailyLimit: durableQuota.dailyAiLimit,
+      },
     },
     requiredProductionEnv: ["REQUEST_ASSISTANT_PUBLIC_ENABLED"],
+    requiredForAi: ["OPENROUTER_API_KEY", "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
     optionalEnv: [
-      "OPENROUTER_API_KEY",
       "CLAW_REQUEST_ASSISTANT_MODEL",
+      "REQUEST_ASSISTANT_ALLOWED_ORIGINS",
       "REQUEST_ASSISTANT_RATE_LIMIT",
       "REQUEST_ASSISTANT_RATE_WINDOW_MS",
+      "REQUEST_ASSISTANT_AI_RATE_LIMIT",
+      "REQUEST_ASSISTANT_AI_RATE_WINDOW_MS",
+      "REQUEST_ASSISTANT_DAILY_AI_LIMIT",
       "REQUEST_ASSISTANT_PROVIDER_TIMEOUT_MS",
     ],
   });
@@ -90,55 +113,27 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const correlationId = crypto.randomUUID();
-
   if (!publicAssistantEnabled()) {
     return json(
       {
         ok: false,
         error: "assistant_disabled",
-        message: "The public request assistant is not enabled.",
+        message: "Request assistant is not enabled.",
         correlationId,
       },
       { status: 503 },
     );
   }
 
-  const declaredLength = Number.parseInt(request.headers.get("content-length") ?? "0", 10);
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
-    return json({ ok: false, error: "payload_too_large", correlationId }, { status: 413 });
+  const policyFailure = validateRequestPolicy(request);
+  if (policyFailure) {
+    const { status, ...errorBody } = policyFailure;
+    return json({ ok: false, ...errorBody, correlationId }, { status });
   }
 
-  let payload: unknown;
-  try {
-    const raw = await request.text();
-    if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) {
-      return json({ ok: false, error: "payload_too_large", correlationId }, { status: 413 });
-    }
-    payload = JSON.parse(raw);
-  } catch {
-    return json({ ok: false, error: "invalid_json", correlationId }, { status: 400 });
-  }
-
-  const parsed = requestAssistantInputSchema.safeParse(payload);
-  if (!parsed.success) {
-    return json(
-      {
-        ok: false,
-        error: "validation_error",
-        issues: parsed.error.flatten().fieldErrors,
-        correlationId,
-      },
-      { status: 422 },
-    );
-  }
-
-  if (parsed.data.honeypot) {
-    return json({ ok: true, ignored: true, correlationId });
-  }
-
-  const rateLimit = checkRequestAssistantRateLimit(clientRateLimitKey(request));
-  const requestRateHeaders = rateLimitHeaders(rateLimit);
-  if (!rateLimit.allowed) {
+  const clientKey = requestAssistantClientKey(request);
+  const localLimit = checkRequestAssistantRateLimit(clientKey);
+  if (!localLimit.allowed) {
     return json(
       {
         ok: false,
@@ -148,27 +143,68 @@ export async function POST(request: Request) {
       },
       {
         status: 429,
-        headers: { ...requestRateHeaders, "Retry-After": String(rateLimit.retryAfterSeconds) },
+        headers: {
+          ...localRateHeaders(localLimit),
+          "Retry-After": String(localLimit.retryAfterSeconds),
+        },
       },
     );
   }
 
-  const sensitiveValues = [
+  const body = await readRequestBodyWithLimit(request, MAX_ASSISTANT_BODY_BYTES);
+  if (!body.ok) {
+    return json(
+      { ok: false, error: body.error, correlationId },
+      { status: 413, headers: localRateHeaders(localLimit) },
+    );
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(body.text);
+  } catch {
+    return json(
+      { ok: false, error: "invalid_json", correlationId },
+      { status: 400, headers: localRateHeaders(localLimit) },
+    );
+  }
+
+  const parsed = requestAssistantInputSchema.safeParse(payload);
+  if (!parsed.success) {
+    return json(
+      {
+        ok: false,
+        error: "validation_error",
+        issues: parsed.error.flatten(),
+        correlationId,
+      },
+      { status: 422, headers: localRateHeaders(localLimit) },
+    );
+  }
+
+  if (parsed.data.honeypot) {
+    return json(
+      { ok: true, ignored: true, correlationId },
+      { status: 200, headers: localRateHeaders(localLimit) },
+    );
+  }
+
+  const valuesToScan = [
     ...parsed.data.messages.map((message) => message.content),
     ...Object.values(parsed.data.draft).filter((value): value is string => typeof value === "string"),
   ];
-  const inputRiskFlags = scanSensitiveContent(sensitiveValues);
+  const inputRiskFlags = scanSensitiveContent(valuesToScan);
   if (inputRiskFlags.length > 0) {
     return json(
       {
         ok: false,
         error: "sensitive_content",
         message:
-          "Remove passwords, API keys, access tokens, private keys, or payment-card details before using the request assistant. Rotate any credential that was pasted here.",
+          "Remove passwords, API keys, access tokens, private keys, configuration secrets, or payment-card details before using the request assistant. Rotate any credential that was pasted here.",
         riskFlags: inputRiskFlags,
         correlationId,
       },
-      { status: 422, headers: requestRateHeaders },
+      { status: 422, headers: localRateHeaders(localLimit) },
     );
   }
 
@@ -177,76 +213,83 @@ export async function POST(request: Request) {
     .find((message) => message.role === "user")?.content;
   if (!latestUserMessage) {
     return json(
-      {
-        ok: false,
-        error: "user_message_required",
-        message: "At least one user message is required.",
-        correlationId,
-      },
-      { status: 422, headers: requestRateHeaders },
+      { ok: false, error: "missing_user_message", correlationId },
+      { status: 422, headers: localRateHeaders(localLimit) },
     );
   }
 
-  const deterministicDraft = applyDeterministicAnswer(
-    parsed.data.draft,
-    parsed.data.answering,
-    latestUserMessage,
-  );
-  const provider = parsed.data.useAi
-    ? await generateRequestAssistantDraft({
-        ...parsed.data,
-        draft: deterministicDraft,
-      })
-    : {
-        ok: false as const,
-        reason: "ai-not-requested" as const,
-        model: requestAssistantProviderConfig().model,
-      };
+  const draft = applyDeterministicAnswer(parsed.data.draft, parsed.data.answering, latestUserMessage);
+  const providerConfig = requestAssistantProviderConfig();
+  let providerAttempted = false;
+  let fallbackReason: string | null = parsed.data.useAi
+    ? "provider-not-attempted"
+    : "ai-not-requested";
+  let suggestedDraft: ProviderTaskDraft | null = null;
 
-  let draft: RequestDraft = deterministicDraft;
-  let reply = buildGuidedReply(draft);
-  let providerMode: "openrouter" | "guided-fallback" = "guided-fallback";
-  let fallbackReason: string | null = provider.ok ? null : provider.reason;
-
-  if (provider.ok) {
-    const providerDraft = mergeDraft(draft, provider.output.draft);
-    const outputRiskFlags = scanSensitiveContent([
-      provider.output.reply,
-      ...Object.values(providerDraft).filter((value): value is string => typeof value === "string"),
-    ]);
-
-    if (outputRiskFlags.length === 0 && !isUnsafeAssistantReply(provider.output.reply)) {
-      draft = providerDraft;
-      reply = provider.output.reply;
-      providerMode = "openrouter";
-      fallbackReason = null;
+  if (parsed.data.useAi) {
+    if (!providerConfig.configured) {
+      fallbackReason = "provider-not-configured";
+    } else if (!providerEligibleForField(parsed.data.answering)) {
+      fallbackReason = "identity-field-local-only";
     } else {
-      fallbackReason = "unsafe-provider-output";
+      const durableQuota = await checkDurableAiQuota(clientKey);
+      if (!durableQuota.allowed) {
+        fallbackReason = `durable-quota-${durableQuota.reason}`;
+      } else {
+        providerAttempted = true;
+        const provider = await generateRequestAssistantSuggestion({
+          messages: parsed.data.messages,
+          draft,
+          answering: parsed.data.answering,
+        });
+        if (provider.ok) {
+          const filtered = filterProviderSuggestion(
+            parsed.data.draft,
+            provider.output.draft,
+            parsed.data.answering,
+          );
+          const outputValues = Object.values(filtered).filter(
+            (value): value is string => typeof value === "string",
+          );
+          const unsafeOutput =
+            scanSensitiveContent(outputValues).length > 0 ||
+            containsProviderRestrictedData(outputValues);
+          if (!unsafeOutput && Object.keys(filtered).length > 0) {
+            suggestedDraft = filtered;
+            fallbackReason = null;
+          } else {
+            fallbackReason = unsafeOutput ? "unsafe-provider-output" : "no-new-suggestion";
+          }
+        } else {
+          fallbackReason = provider.reason;
+        }
+      }
     }
   }
 
   const evaluation = evaluateDraft(draft);
-  const nextField = getNextRequiredField(draft);
-
   return json(
     {
       ok: true,
       correlationId,
-      reply,
+      reply: buildGuidedReply(draft),
       draft,
-      nextField,
+      suggestedDraft,
+      nextField: getNextRequiredField(draft),
       missing: evaluation.missing,
-      issues: evaluation.issues,
       readyToSubmit: evaluation.readyToSubmit,
       submissionPayload: evaluation.submissionPayload,
       autoSubmitted: false,
       aiRequested: parsed.data.useAi,
+      aiProviderAttempted: providerAttempted,
+      aiSuggestionAvailable: suggestedDraft !== null,
       provider: {
-        mode: providerMode,
-        model: provider.model,
+        mode: suggestedDraft ? "openrouter" : "guided-fallback",
+        model: providerConfig.model,
         fallbackReason,
+        zeroDataRetentionRequired: true,
       },
     },
-    { headers: requestRateHeaders },
+    { status: 200, headers: localRateHeaders(localLimit) },
   );
 }
