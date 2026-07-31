@@ -86,7 +86,11 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function redactProviderText(value: string, knownNames: string[] = []) {
+export function redactProviderText(
+  value: string,
+  knownNames: string[] = [],
+  knownPrivateValues: string[] = [],
+) {
   const withoutKnownNames = knownNames.reduce((text, name) => {
     const normalized = name.trim();
     if (normalized.length < 2) return text;
@@ -97,9 +101,23 @@ export function redactProviderText(value: string, knownNames: string[] = []) {
     );
   }, value);
 
-  return withoutKnownNames
+  const withoutKnownPrivateValues = knownPrivateValues.reduce((text, privateValue) => {
+    const normalized = privateValue.trim();
+    if (normalized.length < 2) return text;
+    const escaped = escapeRegExp(normalized);
+    return text.replace(
+      new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "giu"),
+      "[private value removed]",
+    );
+  }, withoutKnownNames);
+
+  return withoutKnownPrivateValues
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email removed]")
     .replace(/\bhttps?:\/\/[^\s]+|\bwww\.[^\s]+/gi, "[url removed]")
+    .replace(
+      /(?<![\p{L}\p{N}@_-])(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+[\p{L}]{2,63}(?:\/[^\s]*)?(?![\p{L}\p{N}_-])/giu,
+      "[url removed]",
+    )
     .replace(/(?:\+?\d[\d\s().-]{7,}\d)/g, (match) =>
       /^\d{4}-\d{2}-\d{2}$/.test(match) ? match : "[phone removed]",
     )

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { checkDurableAiQuota, durableAiQuotaConfig } from "@/lib/request-assistant/durable-rate-limit";
+import {
+  checkDurableAiQuota,
+  durableAiQuotaConfig,
+  localAiQuotaOverrideEnabled,
+} from "@/lib/request-assistant/durable-rate-limit";
 import {
   containsProviderRestrictedData,
   scanSensitiveContent,
@@ -8,8 +12,8 @@ import {
   applyDeterministicAnswer,
   buildGuidedReply,
   evaluateDraft,
-  filterProviderSuggestion,
   getNextRequiredField,
+  prepareProviderSuggestion,
 } from "@/lib/request-assistant/logic";
 import {
   generateRequestAssistantSuggestion,
@@ -29,6 +33,7 @@ import {
 import {
   requestAssistantInputSchema,
   type ProviderTaskDraft,
+  type TaskField,
 } from "@/lib/request-assistant/types";
 
 export const runtime = "nodejs";
@@ -68,38 +73,57 @@ export async function GET() {
   const provider = requestAssistantProviderConfig();
   const localLimit = requestAssistantRateLimitConfig();
   const durableQuota = durableAiQuotaConfig();
+  const localAiOverride = localAiQuotaOverrideEnabled();
 
   return json({
     ok: true,
     service: "claw-request-assistant",
     enabled: publicAssistantEnabled(),
     provider: {
+      name: provider.providerName,
+      mode: provider.provider,
       configured: provider.configured,
       model: provider.model,
-      zeroDataRetentionRequired: true,
-      configurationReadyForPublicAi: provider.configured && durableQuota.configured,
+      previewEnabled: provider.previewEnabled,
+      previewOnly: provider.previewOnly,
+      zeroDataRetentionVerified: provider.zeroDataRetentionVerified,
+      retention: provider.zeroDataRetentionVerified
+        ? "zero-data-retention-verified"
+        : "abuse-monitoring-up-to-30-days",
+      configurationReadyForPublicAi: false,
+      configurationReadyForLocalAi:
+        provider.configured && (localAiOverride || durableQuota.configured),
     },
     privacy: {
       applicationPersistence: "none",
       providerProcessing: "explicit-useAi-opt-in-only",
       providerData: "explicit-task-answer-with-known-identity-and-common-contact-redaction",
+      providerRetention: provider.zeroDataRetentionVerified
+        ? "zero-data-retention-verified"
+        : "redacted-task-text-may-be-retained-for-abuse-monitoring-up-to-30-days",
+      providerPreviewOnly: true,
       privatePortalRetrieval: false,
       autoSubmit: false,
     },
     rateLimit: {
       local: { mode: "bounded-instance", limit: localLimit.limit, windowMs: localLimit.windowMs },
       ai: {
-        mode: "upstash-distributed",
-        configured: durableQuota.configured,
+        mode: localAiOverride ? "local-development" : "upstash-distributed",
+        configured: localAiOverride || durableQuota.configured,
         clientLimit: durableQuota.clientLimit,
         windowMs: durableQuota.windowMs,
         dailyLimit: durableQuota.dailyAiLimit,
       },
     },
     requiredProductionEnv: ["REQUEST_ASSISTANT_PUBLIC_ENABLED"],
-    requiredForAi: ["OPENROUTER_API_KEY", "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+    requiredForAi: [
+      "OPENAI_API_KEY",
+      "REQUEST_ASSISTANT_ALLOW_OPENAI_PREVIEW",
+      "UPSTASH_REDIS_REST_URL",
+      "UPSTASH_REDIS_REST_TOKEN",
+    ],
     optionalEnv: [
-      "CLAW_REQUEST_ASSISTANT_MODEL",
+      "OPENAI_ZERO_DATA_RETENTION_VERIFIED",
       "REQUEST_ASSISTANT_ALLOWED_ORIGINS",
       "REQUEST_ASSISTANT_RATE_LIMIT",
       "REQUEST_ASSISTANT_RATE_WINDOW_MS",
@@ -107,6 +131,7 @@ export async function GET() {
       "REQUEST_ASSISTANT_AI_RATE_WINDOW_MS",
       "REQUEST_ASSISTANT_DAILY_AI_LIMIT",
       "REQUEST_ASSISTANT_PROVIDER_TIMEOUT_MS",
+      "REQUEST_ASSISTANT_ALLOW_LOCAL_AI",
     ],
   });
 }
@@ -225,6 +250,7 @@ export async function POST(request: Request) {
     ? "provider-not-attempted"
     : "ai-not-requested";
   let suggestedDraft: ProviderTaskDraft | null = null;
+  let suggestedField: TaskField | null = null;
 
   if (parsed.data.useAi) {
     if (!providerConfig.configured) {
@@ -232,8 +258,10 @@ export async function POST(request: Request) {
     } else if (!providerEligibleForField(parsed.data.answering)) {
       fallbackReason = "identity-field-local-only";
     } else {
-      const durableQuota = await checkDurableAiQuota(clientKey);
-      if (!durableQuota.allowed) {
+      const durableQuota = localAiQuotaOverrideEnabled()
+        ? null
+        : await checkDurableAiQuota(clientKey);
+      if (durableQuota && !durableQuota.allowed) {
         fallbackReason = `durable-quota-${durableQuota.reason}`;
       } else {
         providerAttempted = true;
@@ -243,19 +271,20 @@ export async function POST(request: Request) {
           answering: parsed.data.answering,
         });
         if (provider.ok) {
-          const filtered = filterProviderSuggestion(
+          const prepared = prepareProviderSuggestion(
             parsed.data.draft,
             provider.output.draft,
             parsed.data.answering,
           );
-          const outputValues = Object.values(filtered).filter(
+          const outputValues = Object.values(prepared?.draft ?? {}).filter(
             (value): value is string => typeof value === "string",
           );
           const unsafeOutput =
             scanSensitiveContent(outputValues).length > 0 ||
             containsProviderRestrictedData(outputValues);
-          if (!unsafeOutput && Object.keys(filtered).length > 0) {
-            suggestedDraft = filtered;
+          if (!unsafeOutput && prepared) {
+            suggestedDraft = prepared.draft;
+            suggestedField = prepared.field;
             fallbackReason = null;
           } else {
             fallbackReason = unsafeOutput ? "unsafe-provider-output" : "no-new-suggestion";
@@ -275,6 +304,7 @@ export async function POST(request: Request) {
       reply: buildGuidedReply(draft),
       draft,
       suggestedDraft,
+      suggestedField,
       nextField: getNextRequiredField(draft),
       missing: evaluation.missing,
       readyToSubmit: evaluation.readyToSubmit,
@@ -284,10 +314,15 @@ export async function POST(request: Request) {
       aiProviderAttempted: providerAttempted,
       aiSuggestionAvailable: suggestedDraft !== null,
       provider: {
-        mode: suggestedDraft ? "openrouter" : "guided-fallback",
+        mode: suggestedDraft ? "openai" : "guided-fallback",
+        name: providerConfig.providerName,
         model: providerConfig.model,
+        previewOnly: providerConfig.previewOnly,
         fallbackReason,
-        zeroDataRetentionRequired: true,
+        zeroDataRetentionVerified: providerConfig.zeroDataRetentionVerified,
+        retention: providerConfig.zeroDataRetentionVerified
+          ? "zero-data-retention-verified"
+          : "abuse-monitoring-up-to-30-days",
       },
     },
     { status: 200, headers: localRateHeaders(localLimit) },

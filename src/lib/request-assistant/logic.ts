@@ -150,6 +150,50 @@ export function filterProviderSuggestion(
   return suggestion;
 }
 
+export function prepareProviderSuggestion(
+  existingDraft: RequestDraft,
+  candidate: ProviderTaskDraft,
+  answering?: AssistantField,
+) {
+  const parsedAnswering = answering ? taskFieldSchema.safeParse(answering) : null;
+  if (!parsedAnswering?.success) return null;
+
+  const comparisonDraft: RequestDraft = {
+    ...existingDraft,
+    [parsedAnswering.data]: undefined,
+  };
+  const draft = filterProviderSuggestion(
+    comparisonDraft,
+    candidate,
+    parsedAnswering.data,
+  );
+  if (!draft[parsedAnswering.data]) return null;
+
+  return {
+    draft,
+    field: parsedAnswering.data,
+  };
+}
+
+export function applySuggestionToDraft(
+  currentDraft: RequestDraft,
+  candidate: ProviderTaskDraft,
+  authorizedField?: TaskField | null,
+) {
+  const parsedField = taskFieldSchema.safeParse(authorizedField);
+  const acceptedSuggestion = parsedField.success
+    ? filterProviderSuggestion({}, candidate, parsedField.data)
+    : {};
+  const draft = normalizeDraft({ ...currentDraft, ...acceptedSuggestion });
+  const evaluation = evaluateDraft(draft);
+
+  return {
+    draft,
+    readyToSubmit: evaluation.readyToSubmit,
+    nextField: evaluation.missing[0] ?? null,
+  };
+}
+
 export function evaluateDraft(draft: RequestDraft) {
   const candidate = {
     name: draft.name ?? "",

@@ -8,9 +8,11 @@ import {
 } from "./guardrails";
 import {
   applyDeterministicAnswer,
+  applySuggestionToDraft,
   buildGuidedReply,
   evaluateDraft,
   filterProviderSuggestion,
+  prepareProviderSuggestion,
 } from "./logic";
 import { requestAssistantInputSchema } from "./types";
 
@@ -77,6 +79,90 @@ test("an explicit task answer may receive a separate suggestion", () => {
   assert.deepEqual(suggestion, {
     request: "Build a concise launch site for the consulting offer.",
   });
+});
+
+test("explicit Apply replaces only the just-answered task field and recomputes readiness", () => {
+  const preAnswerDraft = {
+    service: serviceOptions[0],
+    name: "Northstar Services",
+    email: "hello@northstar.example",
+  };
+  const postAnswerDraft = applyDeterministicAnswer(
+    preAnswerDraft,
+    "request",
+    "Build a launch site for the consulting offer with clearer positioning.",
+  );
+  const displayedSuggestion = prepareProviderSuggestion(
+    preAnswerDraft,
+    { request: "Build a concise launch site that clarifies the offer and drives qualified leads." },
+    "request",
+  );
+  assert.ok(displayedSuggestion);
+
+  const complete = applySuggestionToDraft(
+    postAnswerDraft,
+    displayedSuggestion.draft,
+    displayedSuggestion.field,
+  );
+  assert.equal(complete.readyToSubmit, true);
+  assert.equal(complete.nextField, null);
+  assert.equal(
+    complete.draft.request,
+    "Build a concise launch site that clarifies the offer and drives qualified leads.",
+  );
+  assert.equal(complete.draft.service, serviceOptions[0]);
+  assert.equal(complete.draft.name, "Northstar Services");
+  assert.equal(complete.draft.email, "hello@northstar.example");
+});
+
+test("revising an existing task field can still produce a separately authorized suggestion", () => {
+  const preEditDraft = {
+    service: serviceOptions[0],
+    request: "Build the original launch site.",
+    name: "Northstar Services",
+    email: "hello@northstar.example",
+  };
+  const postEditDraft = applyDeterministicAnswer(
+    preEditDraft,
+    "request",
+    "Build the revised launch site for our consulting offer.",
+  );
+  const prepared = prepareProviderSuggestion(
+    preEditDraft,
+    { request: "Build a focused launch site that explains the revised consulting offer." },
+    "request",
+  );
+  assert.ok(prepared);
+  assert.equal(preEditDraft.request, "Build the original launch site.");
+
+  const applied = applySuggestionToDraft(
+    postEditDraft,
+    prepared.draft,
+    prepared.field,
+  );
+  assert.equal(
+    applied.draft.request,
+    "Build a focused launch site that explains the revised consulting offer.",
+  );
+});
+
+test("Apply cannot overwrite a populated field without an exact task-field authorization", () => {
+  const currentDraft = {
+    service: serviceOptions[0],
+    request: "Build the canonical launch site.",
+    name: "Northstar Services",
+    email: "hello@northstar.example",
+  };
+  const candidate = {
+    request: "Replace the request.",
+    budget: "$5,000",
+  };
+
+  const missingAuthorization = applySuggestionToDraft(currentDraft, candidate, null);
+  assert.deepEqual(missingAuthorization.draft, currentDraft);
+
+  const mismatchedAuthorization = applySuggestionToDraft(currentDraft, candidate, "timeline");
+  assert.deepEqual(mismatchedAuthorization.draft, currentDraft);
 });
 
 test("sensitive-content scanning catches common credential forms", () => {

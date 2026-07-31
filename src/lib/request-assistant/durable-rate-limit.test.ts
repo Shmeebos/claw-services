@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { checkDurableAiQuota, durableAiQuotaConfig } from "./durable-rate-limit";
+import {
+  checkDurableAiQuota,
+  durableAiQuotaConfig,
+  localAiQuotaOverrideEnabled,
+} from "./durable-rate-limit";
 
 const envNames = [
   "UPSTASH_REDIS_REST_URL",
@@ -32,6 +36,25 @@ test("AI quota fails closed when distributed storage is not configured", async (
     assert.equal(result.reason, "not-configured");
   } finally {
     restoreEnv(snapshot);
+  }
+});
+
+test("local AI override is explicit and never active in production", () => {
+  const mutableEnv = process.env as Record<string, string | undefined>;
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalOverride = process.env.REQUEST_ASSISTANT_ALLOW_LOCAL_AI;
+  try {
+    mutableEnv.NODE_ENV = "development";
+    process.env.REQUEST_ASSISTANT_ALLOW_LOCAL_AI = "true";
+    assert.equal(localAiQuotaOverrideEnabled(), true);
+
+    mutableEnv.NODE_ENV = "production";
+    assert.equal(localAiQuotaOverrideEnabled(), false);
+  } finally {
+    if (originalNodeEnv === undefined) delete mutableEnv.NODE_ENV;
+    else mutableEnv.NODE_ENV = originalNodeEnv;
+    if (originalOverride === undefined) delete process.env.REQUEST_ASSISTANT_ALLOW_LOCAL_AI;
+    else process.env.REQUEST_ASSISTANT_ALLOW_LOCAL_AI = originalOverride;
   }
 });
 

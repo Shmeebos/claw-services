@@ -61,6 +61,13 @@ export function durableAiQuotaConfig(): DurableQuotaConfig {
   };
 }
 
+export function localAiQuotaOverrideEnabled() {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.REQUEST_ASSISTANT_ALLOW_LOCAL_AI?.trim().toLowerCase() === "true"
+  );
+}
+
 function millisecondsUntilUtcMidnight(now = Date.now()) {
   const date = new Date(now);
   const midnight = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1);

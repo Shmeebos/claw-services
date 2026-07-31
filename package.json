@@ -7,8 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "pnpm test:request-assistant",
-    "test:request-assistant": "tsx --test src/lib/request-assistant/*.test.ts"
+    "test": "pnpm test:request-assistant && pnpm test:operating-context",
+    "test:request-assistant": "tsx --test src/lib/request-assistant/*.test.ts",
+    "test:operating-context": "tsx --test src/lib/operating-context/*.test.ts",
+    "context:dry-run": "tsx scripts/sync-operating-context.ts",
+    "context:write-local": "tsx scripts/sync-operating-context.ts --write-local"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
